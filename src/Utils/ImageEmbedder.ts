@@ -40,21 +40,22 @@ export class ImageEmbedder {
             const root = doc.documentElement;
 
             if (root.nodeName === "svg") {
-                return this.serialize(await this.inlineSvgDocument(doc, root));
+                const changed = await this.inlineSvgDocument(doc, root);
+                return changed ? this.serialize(root) : content;
             }
 
             if (root.nodeName === "mxfile") {
-                await this.inlineMxFile(doc, root);
-                return this.serialize(doc.documentElement);
+                const changed = await this.inlineMxFile(doc, root);
+                return changed ? this.serialize(doc.documentElement) : content;
             }
 
             if (root.nodeName === "mxlibrary") {
-                await this.inlineMxLibrary(root);
-                return this.serialize(doc.documentElement);
+                const changed = await this.inlineMxLibrary(root);
+                return changed ? this.serialize(doc.documentElement) : content;
             }
 
-            await this.inlineStyleAttributes(root);
-            return this.serialize(doc.documentElement);
+            const replaced = await this.inlineStyleAttributes(root);
+            return replaced > 0 ? this.serialize(doc.documentElement) : content;
         } catch (error) {
             console.warn("ImageEmbedder: inline pass skipped", error);
             return content;
@@ -116,8 +117,9 @@ export class ImageEmbedder {
         return results;
     }
 
-    private static async inlineSvgDocument(doc: Document, svgRoot: Element): Promise<Element> {
+    private static async inlineSvgDocument(doc: Document, svgRoot: Element): Promise<boolean> {
         const images = Array.from(svgRoot.querySelectorAll("image"));
+        let changed = false;
 
         await this.mapWithLimit(images, 6, async (img) => {
             const href = img.getAttribute("href") || img.getAttribute("xlink:href") || "";
@@ -126,6 +128,7 @@ export class ImageEmbedder {
             const dataUri = await this.toDataUri(href);
             if (dataUri === href) return;
 
+            changed = true;
             img.setAttribute("href", dataUri);
             if (img.hasAttribute("xlink:href")) {
                 img.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", dataUri);
@@ -137,11 +140,14 @@ export class ImageEmbedder {
             const xml = this.decodeEmbeddedXml(embeddedContent);
             if (xml) {
                 const inlined = await this.inlineExternalImages(xml);
-                svgRoot.setAttribute("content", inlined);
+                if (inlined !== xml) {
+                    changed = true;
+                    svgRoot.setAttribute("content", inlined);
+                }
             }
         }
 
-        return svgRoot;
+        return changed;
     }
 
     private static decodeEmbeddedXml(raw: string): string | null {
@@ -170,8 +176,9 @@ export class ImageEmbedder {
         }
     }
 
-    private static async inlineMxFile(doc: Document, mxFile: Element): Promise<void> {
+    private static async inlineMxFile(doc: Document, mxFile: Element): Promise<boolean> {
         const diagrams = mxFile.getElementsByTagName("diagram");
+        let changed = false;
 
         for (const diagram of Array.from(diagrams)) {
             const text = (diagram.textContent || "").trim();
@@ -183,35 +190,41 @@ export class ImageEmbedder {
                 const modelDoc = new DOMParser().parseFromString(xml, "application/xml");
                 if (modelDoc.querySelector("parsererror")) continue;
 
-                await this.inlineStyleAttributes(modelDoc.documentElement);
+                const replaced = await this.inlineStyleAttributes(modelDoc.documentElement);
+                if (replaced === 0) continue;
 
                 const recompressed = this.compressDiagramText(this.serialize(modelDoc.documentElement));
-                if (recompressed) {
+                if (recompressed && recompressed !== text) {
                     diagram.textContent = recompressed;
-                } else {
+                    changed = true;
+                } else if (!recompressed) {
                     diagram.textContent = "";
                     diagram.appendChild(doc.importNode(modelDoc.documentElement, true));
+                    changed = true;
                 }
             } else {
                 const children = Array.from(diagram.children);
                 for (const child of children) {
-                    await this.inlineStyleAttributes(child);
+                    const replaced = await this.inlineStyleAttributes(child);
+                    if (replaced > 0) changed = true;
                 }
             }
         }
+
+        return changed;
     }
 
-    private static async inlineMxLibrary(libraryRoot: Element): Promise<void> {
+    private static async inlineMxLibrary(libraryRoot: Element): Promise<boolean> {
         const jsonText = libraryRoot.textContent || "";
 
         let entries: unknown;
         try {
             entries = JSON.parse(jsonText);
         } catch {
-            return;
+            return false;
         }
 
-        if (!Array.isArray(entries)) return;
+        if (!Array.isArray(entries)) return false;
 
         let changed = false;
         for (const rawEntry of entries) {
@@ -258,6 +271,8 @@ export class ImageEmbedder {
         if (changed) {
             libraryRoot.textContent = JSON.stringify(entries);
         }
+
+        return changed;
     }
 
     private static async inlineXmlString(xml: string): Promise<string> {
@@ -288,11 +303,13 @@ export class ImageEmbedder {
         return EXTERNAL_URL_ANYWHERE.test(value) || value.includes(";base64,");
     }
 
-    private static async inlineStyleAttributes(root: Element): Promise<void> {
+    private static async inlineStyleAttributes(root: Element): Promise<number> {
         const candidates = Array.from(root.querySelectorAll("[style]")).filter((element) => {
             const style = element.getAttribute("style");
             return !!style && this.needsStylePass(style);
         });
+
+        let replaced = 0;
 
         await this.mapWithLimit(candidates, 6, async (element) => {
             const style = element.getAttribute("style");
@@ -300,9 +317,12 @@ export class ImageEmbedder {
 
             const inlined = await this.inlineStyleString(style);
             if (inlined !== style) {
+                replaced++;
                 element.setAttribute("style", inlined);
             }
         });
+
+        return replaced;
     }
 
     private static async inlineStyleString(style: string): Promise<string> {

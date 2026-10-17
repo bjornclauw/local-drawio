@@ -22,6 +22,10 @@ export class DrawioAppController {
 
   private leaf?: WorkspaceLeaf | null;
 
+  private saving = false;
+  private saveQueued = false;
+  private saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
   constructor(plugin: DrawioPlugin, iframe: HTMLIFrameElement, url: string, leaf?: WorkspaceLeaf) {
     this.plugin = plugin
     this.iframe = iframe
@@ -70,7 +74,7 @@ export class DrawioAppController {
       let data = await this.plugin.app.vault.read(this.file);
 
       if (this.plugin.settings.embedExternalImages !== false) {
-        data = await ImageEmbedder.inlineExternalImages(data);
+        data = await this.inlineIfNeeded(this.file, data);
       }
 
       const messageToEditDrawIo = {
@@ -84,6 +88,35 @@ export class DrawioAppController {
     }
 
     return this.iframe.contentWindow?.postMessage(JSON.stringify(messageToDrawIo), this.Utils.getServerUrl("baseurl"));
+  }
+
+  private static verifiedClean = new Map<string, { mtime: number; size: number }>();
+
+  private async inlineIfNeeded(file: TFile, data: string): Promise<string> {
+    let stat: { mtime: number; size: number } | null = null;
+    try {
+      const s = await this.plugin.app.vault.adapter.stat(file.path);
+      if (s) stat = { mtime: s.mtime, size: s.size };
+    } catch {
+      stat = null;
+    }
+
+    const cached = DrawioAppController.verifiedClean.get(file.path);
+    if (stat && cached && stat.mtime === cached.mtime && stat.size === cached.size) {
+      return data;
+    }
+
+    const inlined = await ImageEmbedder.inlineExternalImages(data);
+    if (inlined === data && stat) {
+      DrawioAppController.verifiedClean.set(file.path, { mtime: stat.mtime, size: stat.size });
+      if (DrawioAppController.verifiedClean.size > 200) {
+        for (const oldest of DrawioAppController.verifiedClean.keys()) {
+          DrawioAppController.verifiedClean.delete(oldest);
+          break;
+        }
+      }
+    }
+    return inlined;
   }
 
   async onConfigure() {
@@ -138,68 +171,153 @@ export class DrawioAppController {
   }
 
   onSaveData(data: DrawIoMessage) {
+    if (this.saving) {
+      this.saveQueued = true;
+      this.setEditorSaving(true, t("DRAWIO_EDITOR__SAVING"));
+      return;
+    }
+
+    this.saving = true;
+    this.saveQueued = false;
+    this.setEditorSaving(true, t("DRAWIO_EDITOR__SAVING"), false);
+    this.requestExportDelayed();
+    this.armSaveTimeout();
+  }
+
+  private requestExportDelayed() {
+    // Let the editor paint the spinner/status before it starts the
+    // blocking export render, otherwise the feedback only appears after.
+    setTimeout(() => {
+      if (!this.saving) return;
+      this.requestExport();
+    }, 400);
+  }
+
+  private requestExport() {
     this.iframe.contentWindow?.postMessage(JSON.stringify({
       action: 'export',
       format: 'xmlsvg',
     }), this.url);
   }
 
+  private armSaveTimeout() {
+    this.clearSaveTimeout();
+    this.saveTimeout = setTimeout(() => {
+      this.saving = false;
+      this.saveQueued = false;
+      this.setEditorSaving(false, t("DRAWIO_EDITOR__SAVE_FAILED"), true);
+    }, 120000);
+  }
+
+  private clearSaveTimeout() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+  }
+
+  private finishSave(ok: boolean, cancelled = false) {
+    this.clearSaveTimeout();
+
+    if (this.saveQueued) {
+      this.saveQueued = false;
+      this.setEditorSaving(true, t("DRAWIO_EDITOR__SAVING"));
+      this.requestExportDelayed();
+      this.armSaveTimeout();
+      return;
+    }
+
+    this.saving = false;
+    if (ok) {
+      this.setEditorSaving(false, t("DRAWIO_EDITOR__SAVED"), false);
+    } else if (cancelled) {
+      this.setEditorSaving(false, t("DRAWIO_EDITOR__SAVE_CANCELLED"), true);
+    } else {
+      this.setEditorSaving(false, t("DRAWIO_EDITOR__SAVE_FAILED"), true);
+    }
+  }
+
+  private setEditorSaving(show: boolean, message: string, modified?: boolean) {
+    this.iframe.contentWindow?.postMessage(JSON.stringify({
+      action: 'spinner',
+      show,
+      message
+    }), this.url);
+
+    const status: { action: string; message: string; modified?: boolean } = { action: 'status', message };
+    if (modified !== undefined) status.modified = modified;
+    this.iframe.contentWindow?.postMessage(JSON.stringify(status), this.url);
+  }
+
   async onExportData(data: DrawIoMessage) {
-    const svgBase64 = data.data?.split(',')[1];
-    if (!svgBase64) return;
-
-    const binary = atob(svgBase64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    let svg = new TextDecoder().decode(bytes);
-
-    if (this.plugin.settings.embedExternalImages !== false) {
-      try {
-        svg = await ImageEmbedder.inlineExternalImages(svg);
-      } catch (error) {
-        console.warn("ImageEmbedder: export-time inline pass skipped", error);
-      }
-    }
-
-    if (this.file && await this.plugin.app.vault.adapter.exists(this.file.path)) {
-      let file = this.plugin.app.vault.getFileByPath(this.file.path);
-
-      if (file) {
-        if (file.path.endsWith('.drawio')) {
-          const newPath = file.path.substring(0, file.path.lastIndexOf('.drawio')) + '.drawio.svg';
-          await this.plugin.app.vault.rename(file, newPath);
-
-          this.file = file;
-        }
-
-        await this.plugin.app.vault.modify(file, svg);
-
-        new Notice(t("DRAWIO_NOTICE__DIAGRAM_SAVED").replace("{name}", file.name));
-        this.Utils.refreshLeaves();
+    try {
+      const svgBase64 = data.data?.split(',')[1];
+      if (!svgBase64) {
+        this.finishSave(false);
         return;
       }
-    }
 
-    const newFileName = await this.Utils.getFileNameForSave();
-    if (!newFileName) return;
+      const binary = atob(svgBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      let svg = new TextDecoder().decode(bytes);
 
-    const file = await this.plugin.app.vault.create(newFileName, svg);
-    this.file = file;
-
-    new Notice(t("DRAWIO_NOTICE__DIAGRAM_CREATED").replace("{name}", file.name));
-
-    if (this.leaf) {
-      const currentStatus = this.leaf.getViewState();
-
-      await this.leaf.setViewState({
-        ...currentStatus,
-        state: {
-          ...currentStatus.state,
-          file: file
+      if (this.plugin.settings.embedExternalImages !== false) {
+        try {
+          svg = await ImageEmbedder.inlineExternalImages(svg);
+        } catch (error) {
+          console.warn("ImageEmbedder: export-time inline pass skipped", error);
         }
-      }, { history: false });
+      }
+
+      if (this.file && await this.plugin.app.vault.adapter.exists(this.file.path)) {
+        let file = this.plugin.app.vault.getFileByPath(this.file.path);
+
+        if (file) {
+          if (file.path.endsWith('.drawio')) {
+            const newPath = file.path.substring(0, file.path.lastIndexOf('.drawio')) + '.drawio.svg';
+            await this.plugin.app.vault.rename(file, newPath);
+
+            this.file = file;
+          }
+
+          await this.plugin.app.vault.modify(file, svg);
+
+          new Notice(t("DRAWIO_NOTICE__DIAGRAM_SAVED").replace("{name}", file.name));
+          this.Utils.refreshLeaves();
+          this.finishSave(true);
+          return;
+        }
+      }
+
+      const newFileName = await this.Utils.getFileNameForSave();
+      if (!newFileName) {
+        this.finishSave(false, true);
+        return;
+      }
+
+      const file = await this.plugin.app.vault.create(newFileName, svg);
+      this.file = file;
+
+      new Notice(t("DRAWIO_NOTICE__DIAGRAM_CREATED").replace("{name}", file.name));
+      this.finishSave(true);
+
+      if (this.leaf) {
+        const currentStatus = this.leaf.getViewState();
+
+        await this.leaf.setViewState({
+          ...currentStatus,
+          state: {
+            ...currentStatus.state,
+            file: file
+          }
+        }, { history: false });
+      }
+    } catch (error) {
+      console.error("Failed to save drawio diagram", error);
+      this.finishSave(false);
     }
   }
 
