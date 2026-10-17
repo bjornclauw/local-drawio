@@ -1,7 +1,7 @@
 import { PERCENT_SIZE_REGEX } from "consts";
 import DrawioPlugin from "main";
 
-export async function PercentSize(plugin: DrawioPlugin) {
+export function PercentSize(plugin: DrawioPlugin) {
     return plugin.registerMarkdownPostProcessor((element, context) => {
 
         const observer = new MutationObserver((mutationsList, observer) => {

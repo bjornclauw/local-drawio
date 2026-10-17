@@ -1,7 +1,14 @@
 import DrawioPlugin from "main";
 import { pluginUtils } from "./PluginUtils";
-import { normalizePath, TFile, WorkspaceLeaf, Notice } from "obsidian";
+import { normalizePath, TFile, TFolder, WorkspaceLeaf, Notice } from "obsidian";
 import { t } from "locales/I18n";
+import { ImageEmbedder } from "./ImageEmbedder";
+
+interface DrawIoMessage {
+  event?: string;
+  action?: string;
+  data?: string;
+}
 
 export class DrawioAppController {
 
@@ -23,20 +30,27 @@ export class DrawioAppController {
     this.leaf = leaf ? leaf : null;
   }
 
-  async handleDrawIoMessage() {
-    const listener = async (event: MessageEvent) => {
+  handleDrawIoMessage() {
+    const listener = (event: MessageEvent) => {
       if (event.origin !== this.url) { return; }
 
       if (!this.iframe || event.source !== this.iframe.contentWindow) { return; }
 
-      const data = JSON.parse(event.data);
+      let data: DrawIoMessage;
+      try {
+        data = JSON.parse(event.data as string) as DrawIoMessage;
+      } catch {
+        return;
+      }
 
       switch (data.event) {
-        case "init": this.onInit()
+        case "init": void this.onInit();
+          break
+        case "configure": void this.onConfigure();
           break
         case "save": this.onSaveData(data)
           break
-        case "export": this.onExportData(data)
+        case "export": void this.onExportData(data)
           break
       }
     }
@@ -53,7 +67,11 @@ export class DrawioAppController {
     };
 
     if (this.file) {
-      const data = await this.plugin.app.vault.read(this.file);
+      let data = await this.plugin.app.vault.read(this.file);
+
+      if (this.plugin.settings.embedExternalImages !== false) {
+        data = await ImageEmbedder.inlineExternalImages(data);
+      }
 
       const messageToEditDrawIo = {
         action: 'load',
@@ -68,16 +86,82 @@ export class DrawioAppController {
     return this.iframe.contentWindow?.postMessage(JSON.stringify(messageToDrawIo), this.Utils.getServerUrl("baseurl"));
   }
 
-  onSaveData(data: any) {
+  async onConfigure() {
+    const config = await this.buildLibrariesConfig();
+
+    this.iframe.contentWindow?.postMessage(JSON.stringify({
+      action: 'configure',
+      config
+    }), this.Utils.getServerUrl("baseurl"));
+  }
+
+  async buildLibrariesConfig(): Promise<object> {
+    const rawFolderPath = this.plugin.settings.librariesFolder;
+    const folderPath = rawFolderPath ? rawFolderPath.replace(/\/+$/, "") : "";
+    if (!folderPath) return {};
+
+    try {
+      const folder = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+      if (!(folder instanceof TFolder)) return {};
+
+      const libFiles = folder.children
+        .filter((child): child is TFile => child instanceof TFile && child.name.toLowerCase().endsWith(".xml"))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      if (libFiles.length === 0) return {};
+
+      const baseUrl = this.Utils.getServerUrl("baseurl");
+      const libs = libFiles.map((libFile) => {
+        const title = libFile.name.replace(/\.xml$/i, "");
+        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        const id = "vault-lib-" + (slug || "lib");
+        const url = baseUrl + "/vaultlib/" + encodeURIComponent(libFile.name);
+
+        return { id, title: { main: title }, url, preload: true };
+      });
+
+      return {
+        libraries: [{
+          title: { main: t("DRAWIO_EDITOR__VAULT_LIBRARIES_SECTION") },
+          entries: [{
+            id: "obsidian-vault-libraries",
+            title: { main: t("DRAWIO_EDITOR__VAULT_LIBRARIES_SECTION") },
+            libs
+          }]
+        }],
+        defaultCustomLibraries: libs.map((lib) => "U" + encodeURIComponent(lib.url))
+      };
+    } catch (error) {
+      console.error("Failed to build libraries config", error);
+      return {};
+    }
+  }
+
+  onSaveData(data: DrawIoMessage) {
     this.iframe.contentWindow?.postMessage(JSON.stringify({
       action: 'export',
       format: 'xmlsvg',
     }), this.url);
   }
 
-  async onExportData(data: any) {
-    const svgString = data.data.split(',')[1];
-    const svg = decodeURIComponent(escape(atob(svgString)));
+  async onExportData(data: DrawIoMessage) {
+    const svgBase64 = data.data?.split(',')[1];
+    if (!svgBase64) return;
+
+    const binary = atob(svgBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    let svg = new TextDecoder().decode(bytes);
+
+    if (this.plugin.settings.embedExternalImages !== false) {
+      try {
+        svg = await ImageEmbedder.inlineExternalImages(svg);
+      } catch (error) {
+        console.warn("ImageEmbedder: export-time inline pass skipped", error);
+      }
+    }
 
     if (this.file && await this.plugin.app.vault.adapter.exists(this.file.path)) {
       let file = this.plugin.app.vault.getFileByPath(this.file.path);

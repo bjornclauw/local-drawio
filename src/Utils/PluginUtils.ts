@@ -1,6 +1,6 @@
 import { t } from "locales/I18n";
 import DrawioPlugin from "main";
-import { App, Editor, MarkdownView, normalizePath, Notice, TFile, WorkspaceLeaf } from "obsidian";
+import { App, Editor, MarkdownView, normalizePath, Notice, TFile, TFolder } from "obsidian";
 import { savingNameFileFormatOption } from "Settings/settings";
 import { SetFileNameModal } from "Views/SetFileNameModal";
 
@@ -14,18 +14,21 @@ export class pluginUtils {
     getServerUrl(option: "baseurl" | "fullUrl"): string {
         const baseUrl = `http://localhost:${this.plugin.settings.port}`
 
-        let embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1`;
+        const configureParam = this.plugin.settings.librariesFolder ? "&configure=1" : "";
+        const clibsParam = this.getCustomLibsParam(baseUrl);
+
+        let embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1${configureParam}${clibsParam}`;
 
         switch (this.plugin.settings.EditorTheme) {
             case "auto": {
-                if (document.body.hasClass("theme-light")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white`;
-                if (document.body.hasClass("theme-dark")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark`;
+                if (document.body.hasClass("theme-light")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white${configureParam}${clibsParam}`;
+                if (document.body.hasClass("theme-dark")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark${configureParam}${clibsParam}`;
                 break;
             }
 
-            case "light": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white`
+            case "light": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white${configureParam}${clibsParam}`
                 break;
-            case "dark": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark`;
+            case "dark": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark${configureParam}${clibsParam}`;
                 break;
         }
 
@@ -36,6 +39,27 @@ export class pluginUtils {
             }
 
             default: return baseUrl
+        }
+    }
+
+    private getCustomLibsParam(baseUrl: string): string {
+        try {
+            const rawFolder = this.plugin.settings.librariesFolder;
+            const folderPath = rawFolder ? rawFolder.replace(/\/+$/, "") : "";
+            if (!folderPath) return "";
+
+            const folder = this.plugin.app.vault.getAbstractFileByPath(folderPath);
+            if (!(folder instanceof TFolder)) return "";
+
+            const urls = folder.children
+                .filter((child): child is TFile => child instanceof TFile && child.name.toLowerCase().endsWith(".xml"))
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((libFile) => "U" + encodeURIComponent(`${baseUrl}/vaultlib/${encodeURIComponent(libFile.name)}`));
+
+            if (urls.length === 0) return "";
+            return `&clibs=${urls.join(";")}`;
+        } catch {
+            return "";
         }
     }
 
@@ -117,7 +141,7 @@ export class pluginUtils {
 
             linkText = linkText.trim().replace(/^<|>$/g, "");
             linkText = linkText.replace(/^\.?\//, "");
-            try { linkText = decodeURIComponent(linkText); } catch (e) { console.log(e) }
+            try { linkText = decodeURIComponent(linkText); } catch (e) { console.debug(e) }
 
             const startIndex = match.index;
             const endIndex = startIndex + fullMatchText.length;
@@ -150,16 +174,18 @@ export class pluginUtils {
         const leafTypes = ['markdown', 'canvas', "image"];
 
         leafTypes.forEach(type => {
-            this.plugin.app.workspace.getLeavesOfType(type).forEach(async (leaf) => {
-                const state = leaf.getViewState();
-                const ephemeralState = leaf.getEphemeralState();
+            this.plugin.app.workspace.getLeavesOfType(type).forEach(leaf => {
+                void (async () => {
+                    const state = leaf.getViewState();
+                    const ephemeralState = leaf.getEphemeralState() as Record<string, unknown>;
 
-                await leaf.setViewState({ type: 'empty' });
-                await leaf.setViewState(state);
+                    await leaf.setViewState({ type: 'empty' });
+                    await leaf.setViewState(state);
 
-                setTimeout(() => {
-                    leaf.setEphemeralState(ephemeralState);
-                }, 0);
+                    setTimeout(() => {
+                        leaf.setEphemeralState(ephemeralState);
+                    }, 0);
+                })();
             });
         });
     }
@@ -169,8 +195,8 @@ export class pluginUtils {
         if (mode === "previewMode") {
             switch (this.plugin.settings.diagramThemeInPreviewMode) {
                 case "auto": {
-                    if (document.body.hasClass("theme-light")) return "drawio-diagrams--lightTheme";
                     if (document.body.hasClass("theme-dark")) return "drawio-diagrams--darkTheme";
+                    return "drawio-diagrams--lightTheme";
                 };
                 case "light": return "drawio-diagrams--lightTheme";
                 case "dark": return "drawio-diagrams--darkTheme";
@@ -180,8 +206,8 @@ export class pluginUtils {
         if (mode === "editMode") {
             switch (this.plugin.settings.diagramThemeInEditMode) {
                 case "auto": {
-                    if (document.body.hasClass("theme-light")) return "drawio-diagram--editmode--lightTheme";
                     if (document.body.hasClass("theme-dark")) return "drawio-diagram--editmode--darkTheme";
+                    return "drawio-diagram--editmode--lightTheme";
                 };
                 case "light": return "drawio-diagram--editmode--lightTheme";
                 case "dark": return "drawio-diagram--editmode--darkTheme";
@@ -191,13 +217,15 @@ export class pluginUtils {
         if (mode === "canvasMode") {
             switch (this.plugin.settings.diagramThemeInCanvas) {
                 case "auto": {
-                    if (document.body.hasClass("theme-light")) return "drawio-diagram--canvasMode--lightTheme";
                     if (document.body.hasClass("theme-dark")) return "drawio-diagram--canvasMode--darkTheme";
+                    return "drawio-diagram--canvasMode--lightTheme";
                 };
                 case "light": return "drawio-diagram--canvasMode--lightTheme";
                 case "dark": return "drawio-diagram--canvasMode--darkTheme";
             }
         }
+
+        return "";
     }
 
     async copySvgAsPng(file: TFile): Promise<void> {
@@ -207,7 +235,12 @@ export class pluginUtils {
             svgContent = svgContent.replace(/<rect[^>]*fill\s*=\s*["'](?:#ffffff|rgb\(255,\s*255,\s*255\)|white)["'][^>]*\/>/gi, '');
             svgContent = svgContent.replace(/(style=[^>]*background-color:\s*)(?:#ffffff|white|rgb\(255,\s*255,\s*255\))/gi, '$1transparent');
 
-            const base64Svg = btoa(unescape(encodeURIComponent(svgContent)));
+            const encodedBytes = new TextEncoder().encode(svgContent);
+            let binary = "";
+            for (const byte of encodedBytes) {
+                binary += String.fromCharCode(byte);
+            }
+            const base64Svg = btoa(binary);
             const url = `data:image/svg+xml;base64,${base64Svg}`;
 
             const img = new Image();
@@ -243,29 +276,33 @@ export class pluginUtils {
 
                         ctx.drawImage(img, 0, 0, originalWidth, originalHeight);
 
-                        canvas.toBlob(async (pngBlob) => {
+                        canvas.toBlob((pngBlob) => {
                             if (!pngBlob) {
                                 reject(new Error('Не удалось сконвертировать canvas в Blob'));
                                 return;
                             }
 
-                            try {
-                                await navigator.clipboard.write([
-                                    new ClipboardItem({ [pngBlob.type]: pngBlob })
-                                ]);
-                                new Notice(t("COPY_AS_IMAGE__COPY_SUCCES_NOTICE"));
-                                resolve();
-                            } catch (clipboardError) {
-                                reject(clipboardError);
-                            }
+                            void (async () => {
+                                try {
+                                    await navigator.clipboard.write([
+                                        new ClipboardItem({ [pngBlob.type]: pngBlob })
+                                    ]);
+                                    new Notice(t("COPY_AS_IMAGE__COPY_SUCCES_NOTICE"));
+                                    resolve();
+                                } catch (clipboardError) {
+                                    reject(clipboardError instanceof Error
+                                        ? clipboardError
+                                        : new Error(String(clipboardError)));
+                                }
+                            })();
                         }, 'image/png');
 
                     } catch (err) {
-                        reject(err);
+                        reject(err instanceof Error ? err : new Error(String(err)));
                     }
                 };
 
-                img.onerror = (err) => reject(new Error('Ошибка загрузки SVG'));
+                img.onerror = () => reject(new Error('Ошибка загрузки SVG'));
                 img.src = url;
             });
 

@@ -1,4 +1,4 @@
-import { DRAWIO_EDITOR_VIEW, DRAWIO_EDITOR_VIEW_FILE_ITEM_TYPE, DRAWIO_EXTENSION } from 'consts';
+import { DRAWIO_EDITOR_VIEW_FILE_ITEM_TYPE, DRAWIO_EXTENSION } from 'consts';
 import { t } from 'locales/I18n';
 import DrawioPlugin from 'main';
 import { FileView, TFile, ViewStateResult, WorkspaceLeaf } from 'obsidian';
@@ -9,10 +9,10 @@ export class drawioEditorFileItemView extends FileView {
     plugin: DrawioPlugin;
     Utils: pluginUtils;
     drawioAppController!: DrawioAppController;
-    states: any = {};
+    states: Record<string, unknown> = {};
 
     private iframe!: HTMLIFrameElement;
-    private MessageListener!: (event: MessageEvent) => Promise<void>;
+    private MessageListener!: (event: MessageEvent) => void;
 
     constructor(leaf: WorkspaceLeaf, plugin: DrawioPlugin) {
         super(leaf);
@@ -20,7 +20,7 @@ export class drawioEditorFileItemView extends FileView {
         this.Utils = new pluginUtils(this.plugin);
     }
 
-    async setState(state: any, result: ViewStateResult): Promise<void> {
+    async setState(state: Record<string, unknown>, result: ViewStateResult): Promise<void> {
         await super.setState(state, result);
         this.states = state;
 
@@ -87,8 +87,7 @@ export class drawioEditorFileItemView extends FileView {
             this.leaf
         );
 
-        this.MessageListener = await this.drawioAppController.handleDrawIoMessage();
-        window.addEventListener("message", this.MessageListener);
+        this.MessageListener = this.drawioAppController.handleDrawIoMessage();
     }
 
     async onClose() {

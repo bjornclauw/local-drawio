@@ -1,9 +1,9 @@
 import DrawioPlugin from "main";
-import { EXTERNAL_LINK_CHECK, INTERNAL_LINK_CHECK, CLEAR_INTERNAL_LINK, DRAWIO_EDITOR_VIEW, MARKDOWN_FRAGMENT_SEARCH } from "../consts";
+import { EXTERNAL_LINK_CHECK, INTERNAL_LINK_CHECK, CLEAR_INTERNAL_LINK, MARKDOWN_FRAGMENT_SEARCH } from "../consts";
 import { ExternalLinkTooltip } from "./ExternalLinkTooltip";
 import { pluginUtils } from "./PluginUtils";
-import { Menu, TFile } from "obsidian";
-import { MarkdownTooltip } from "./markdownTooltip";
+import { getVaultBasePath } from "./VaultAdapterUtils";
+import { MarkdownTooltip } from "./MarkdownTooltip";
 import { MxGraphParser } from "./MxGraphParser";
 import { t } from "locales/I18n";
 
@@ -28,7 +28,7 @@ export class CanvasManager {
             this.observer.disconnect();
             this.observer = null;
         }
-        ExternalLinkTooltip.getInstance().destroy();
+        ExternalLinkTooltip.getInstance().destroy(this.plugin.app);
     }
 
     private startObserving() {
@@ -50,7 +50,7 @@ export class CanvasManager {
                 if (mutation.type === "childList") {
                     mutation.addedNodes.forEach((node) => {
                         if (node instanceof HTMLElement) {
-                            this.replaceImageToSvg(node);
+                            void this.replaceImageToSvg(node);
                         }
                     });
                 }
@@ -73,7 +73,7 @@ export class CanvasManager {
         this.observer.observe(targetNode, config);
 
         if (this.isCanvasViewActive()) {
-            this.replaceImageToSvg(document.body);
+            void this.replaceImageToSvg(document.body);
         }
     }
 
@@ -89,9 +89,10 @@ export class CanvasManager {
             ? [element, ...Array.from(canvasImages)]
             : Array.from(canvasImages);
 
-        targets.forEach(async (node) => {
-            const img = node as HTMLImageElement;
-            const src = img.getAttribute("src") || "";
+        targets.forEach((node) => {
+            void (async () => {
+                const img = node as HTMLImageElement;
+                const src = img.getAttribute("src") || "";
 
             if (src.includes(".drawio.svg")) {
                 try {
@@ -113,11 +114,11 @@ export class CanvasManager {
                         this.attachTooltipListeners(svgElement);
                         this.attachMarkdownTooltipListeners(svgElement);
 
-                        const canvasNode = img.closest(".canvas-node") as HTMLElement;
+                        const canvasNode = img.closest(".canvas-node");
 
                         img.replaceWith(svgElement);
 
-                        if (canvasNode) {
+                        if (canvasNode instanceof HTMLElement) {
                             this.applyCanvasStyles(canvasNode, svgElement);
                         }
                     }
@@ -125,6 +126,7 @@ export class CanvasManager {
                     console.error(t("CANVAS__REPLACEIMAGETOSVG_ERROR"), error);
                 }
             }
+            })();
         });
     }
 
@@ -195,9 +197,9 @@ export class CanvasManager {
                 let popoverLeft: number | null = null;
 
                 const observerPopover = new MutationObserver(() => {
-                    const popover = document.body.querySelector(".hover-popover") as HTMLElement | null;
+                    const popover = document.body.querySelector(".hover-popover");
 
-                    if (!popover || popoverTop === null || popoverLeft === null) return;
+                    if (!(popover instanceof HTMLElement) || popoverTop === null || popoverLeft === null) return;
 
                     if (!popover.classList.contains("drawio-hover-position")) {
                         popover.classList.add("drawio-hover-position");
@@ -223,8 +225,8 @@ export class CanvasManager {
                     if (targetLeft < scrollX) targetLeft = scrollX + 10;
                     if (targetTop < scrollY) targetTop = scrollY + 10;
 
-                    if ((popover as any).setCssProps) {
-                        (popover as any).setCssProps({
+                    if (popover instanceof HTMLElement && popover.setCssProps) {
+                        popover.setCssProps({
                             "--drawio-hover-position-top": `${targetTop}px`,
                             "--drawio-hover-position-left": `${targetLeft}px`,
                             "--drawio-hover-position-hight": "var(--popover-height)"
@@ -259,7 +261,7 @@ export class CanvasManager {
                     event.stopPropagation();
 
                     const isNewLeaf = event.ctrlKey || event.metaKey;
-                    this.plugin.app.workspace.openLinkText(cleanPath, sourcePath, isNewLeaf);
+                    void this.plugin.app.workspace.openLinkText(cleanPath, sourcePath, isNewLeaf);
                 });
             }
         });
@@ -333,7 +335,7 @@ export class CanvasManager {
 
                 if (cell) {
                     cell.addEventListener("mouseenter", (event: MouseEvent) => {
-                        markdownTooltip.show(this.plugin.app, markdownContent, event, sourcePath, this.plugin);
+                        void markdownTooltip.show(this.plugin.app, markdownContent, event, sourcePath, this.plugin);
                     });
 
                     cell.addEventListener("mouseleave", () => {
@@ -347,10 +349,10 @@ export class CanvasManager {
     private getVaultPathFromSrc(src: string): string | null {
         try {
             const decodedSrc = decodeURIComponent(src);
-            const cleanSrc = decodedSrc.split("?")[0];
-            const vaultBasePath = (this.plugin.app.vault.adapter as any).getBasePath();
+            const cleanSrc = decodedSrc.split("?")[0] ?? decodedSrc;
+            const vaultBasePath = getVaultBasePath(this.plugin.app.vault.adapter);
 
-            const normalizedSrc = cleanSrc!.replace(/\\/g, "/");
+            const normalizedSrc = cleanSrc.replace(/\\/g, "/");
             const normalizedVaultPath = vaultBasePath.replace(/\\/g, "/");
 
             const vaultIndex = normalizedSrc.indexOf(normalizedVaultPath);
@@ -358,7 +360,7 @@ export class CanvasManager {
                 return normalizedSrc.substring(vaultIndex + normalizedVaultPath.length + 1);
             }
             return null;
-        } catch (e) {
+        } catch {
             return null;
         }
     }

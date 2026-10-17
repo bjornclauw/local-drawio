@@ -9,7 +9,7 @@ export class DrawioEditorModal extends Modal {
     private iframe!: HTMLIFrameElement;
     private utils: pluginUtils;
     private drawioAppController!: DrawioAppController;
-    private MessageListener!: Promise<(event: MessageEvent) => Promise<void>>;
+    private MessageListener!: (event: MessageEvent) => void;
     private file!: TFile | null
     private editor!: Editor;
 
@@ -43,7 +43,7 @@ export class DrawioEditorModal extends Modal {
         this.MessageListener = this.drawioAppController.handleDrawIoMessage();
     }
 
-    async onClose() {
-        window.removeEventListener("message", await this.MessageListener)
+    onClose() {
+        window.removeEventListener("message", this.MessageListener)
     }
 }

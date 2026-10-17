@@ -1,7 +1,7 @@
 import DrawioPlugin from "main";
 import { pluginUtils } from "Utils/PluginUtils";
 
-export async function setDiagramsTheme(plugin: DrawioPlugin) {
+export function setDiagramsTheme(plugin: DrawioPlugin) {
     return plugin.registerMarkdownPostProcessor((element, context) => {
         const utils = new pluginUtils(plugin);
 
@@ -56,8 +56,9 @@ export async function setDiagramsTheme(plugin: DrawioPlugin) {
 
                         if (isDrawio) {
                             const diagrams = element.find("img");
+                            const themeClass = utils.setDiagramsTheme("previewMode");
 
-                            diagrams ? diagrams.addClass(`${utils.setDiagramsTheme("previewMode")}`) : "";
+                            if (diagrams && themeClass) diagrams.addClass(themeClass);
                         }
                     });
 

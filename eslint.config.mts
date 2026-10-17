@@ -22,6 +22,15 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		// Command IDs below are released and must stay stable (documented in AGENTS.md);
+		// their default hotkeys are established user-facing shortcuts.
+		files: ["src/Utils/PluginInit.ts"],
+		rules: {
+			"obsidianmd/commands/no-plugin-id-in-command-id": "off",
+			"obsidianmd/commands/no-default-hotkeys": "off"
+		}
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",

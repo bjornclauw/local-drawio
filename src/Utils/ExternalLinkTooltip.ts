@@ -1,7 +1,9 @@
+import { App } from "obsidian";
+
 export class ExternalLinkTooltip {
     private static instance: ExternalLinkTooltip | null = null;
     private tooltipElement: HTMLElement | null = null;
-    private hideTimeout: NodeJS.Timeout | null = null;
+    private hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
     private constructor() { }
 
@@ -99,10 +101,14 @@ export class ExternalLinkTooltip {
         el.style.top = `${newTop}px`;
     }
 
-    public destroy() {
-        this.hideTimeout && clearTimeout(this.hideTimeout);
+    public destroy(app?: App) {
+        if (this.hideTimeout) {
+            clearTimeout(this.hideTimeout);
+            this.hideTimeout = null;
+        }
 
-        const activeWindows = [document, ...this.getPopoutWindows()];
+        const popoutDocs = app ? this.getPopoutWindows(app) : [];
+        const activeWindows = [document, ...popoutDocs];
         activeWindows.forEach(doc => {
             const el = doc.getElementById('drawio-external-link-tooltip');
             if (el) el.remove();
@@ -112,11 +118,13 @@ export class ExternalLinkTooltip {
         ExternalLinkTooltip.instance = null;
     }
 
-    private getPopoutWindows(): Document[] {
+    private getPopoutWindows(app: App): Document[] {
+        const workspace = app.workspace as unknown as {
+            floatingSplit?: { children?: Array<{ doc?: Document }> };
+        };
+
         const docs: Document[] = [];
-        // @ts-ignore
-        const floatingLeaves = app.workspace.floatingSplit?.children || [];
-        for (const leaf of floatingLeaves) {
+        for (const leaf of workspace.floatingSplit?.children ?? []) {
             if (leaf.doc) docs.push(leaf.doc);
         }
         return docs;

@@ -1,6 +1,6 @@
 import DrawioPlugin from "main";
 
-export async function CenteringDiagrams(plugin: DrawioPlugin) {
+export function CenteringDiagrams(plugin: DrawioPlugin) {
     return plugin.registerMarkdownPostProcessor((element, context) => {
 
         const observer = new MutationObserver((mutationsList, observer) => {

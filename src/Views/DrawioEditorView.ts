@@ -9,10 +9,10 @@ export class DrawioEditorView extends ItemView {
   plugin: DrawioPlugin
   Utils: pluginUtils
   drawioAppController!: DrawioAppController
-  states: any = {};
+  states: Record<string, unknown> = {};
 
   private iframe!: HTMLIFrameElement
-  private MessageListener!: Promise<(event: MessageEvent) => Promise<void>>;
+  private MessageListener!: (event: MessageEvent) => void;
 
   constructor(leaf: WorkspaceLeaf, plugin: DrawioPlugin) {
     super(leaf);
@@ -20,13 +20,13 @@ export class DrawioEditorView extends ItemView {
     this.Utils = new pluginUtils(this.plugin)
   }
 
-  async setState(state: any, result: ViewStateResult): Promise<void> {
+  async setState(state: Record<string, unknown>, result: ViewStateResult): Promise<void> {
     await super.setState(state, result);
 
     this.states = state;
 
-    if (this.drawioAppController && this.states?.file) {
-      this.drawioAppController.file = this.states.file as TFile;
+    if (this.drawioAppController && this.states.file instanceof TFile) {
+      this.drawioAppController.file = this.states.file;
     }
 
     if (this.iframe) {
@@ -47,7 +47,7 @@ export class DrawioEditorView extends ItemView {
   }
 
   getDisplayText() {
-    if (this.states.file) {
+    if (this.states.file instanceof TFile) {
       return this.states.file.name.replace(DRAWIO_EXTENSION, '');
     }
 
@@ -79,6 +79,6 @@ export class DrawioEditorView extends ItemView {
   }
 
   async onClose() {
-    window.removeEventListener("message", await this.MessageListener)
+    window.removeEventListener("message", this.MessageListener)
   }
 }

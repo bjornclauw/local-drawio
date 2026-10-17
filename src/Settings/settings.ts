@@ -37,6 +37,8 @@ export interface DrawioSettings {
 	diagramThemeInCanvas: diagramTheme
 	scaleCopyDiagramAsImage: string;
 	clientAutoUpdate: boolean;
+	embedExternalImages: boolean;
+	librariesFolder: string;
 }
 
 export const DEFAULT_SETTINGS: DrawioSettings = {
@@ -57,7 +59,9 @@ export const DEFAULT_SETTINGS: DrawioSettings = {
 	TransparentDiagramBackgroundInCanavas: false,
 	diagramThemeInCanvas: "auto",
 	scaleCopyDiagramAsImage: "4",
-	clientAutoUpdate: false
+	clientAutoUpdate: false,
+	embedExternalImages: true,
+	librariesFolder: ""
 }
 
 export class SettingTab extends PluginSettingTab {
@@ -102,14 +106,42 @@ export class SettingTab extends PluginSettingTab {
 			.setName(t("SETTINGS_FILE_FORMAT__NAME"))
 			.setDesc(t("SETTINGS_FILE_FORMAT__DESCRIPTION"))
 			.addDropdown(dropdown => {
-				dropdown.addOption("timestamp", `timestamp: ${Date.now().toString()}.drawio.svg`);
-				dropdown.addOption("uuid", `uuid: ${crypto.randomUUID()}.drawio.svg`);
-				dropdown.addOption("iso-date-8601", `iso-date-8601: 2026-06-02_12-30-45.drawio.svg`);
+				dropdown.addOption("timestamp", t("FORMAT_TIMESTAMP"));
+				dropdown.addOption("uuid", t("FORMAT_UUID"));
+				dropdown.addOption("iso-date-8601", t("FORMAT_ISO_DATE"));
 				dropdown.addOption("set name", t("FORMAT_SET_NAME"));
 
 				dropdown.setValue(this.plugin.settings.savingNameFileFormat || "timestamp");
 				dropdown.onChange(async (value) => {
 					this.plugin.settings.savingNameFileFormat = value as savingNameFileFormatOption;
+					await this.plugin.saveSettings();
+				});
+			});
+
+		new Setting(containerEl)
+			.setName(t("SETTINGS_EMBED_IMAGES__NAME"))
+			.setDesc(t("SETTINGS_EMBED_IMAGES__DESCRIPTION"))
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.embedExternalImages !== false)
+				.onChange(async (value) => {
+					this.plugin.settings.embedExternalImages = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName(t("SETTINGS_LIBRARIES_FOLDER__NAME"))
+			.setDesc(t("SETTINGS_LIBRARIES_FOLDER__DESCRIPTION"))
+			.addDropdown(dropdown => {
+				dropdown.addOption("", t("SETTINGS_LIBRARIES_FOLDER__DISABLED"));
+				this.app.vault.getAllFolders().forEach((folder: TFolder) => {
+					if (folder.path !== "/") {
+						dropdown.addOption(folder.path, folder.path);
+					}
+				});
+
+				dropdown.setValue(this.plugin.settings.librariesFolder || "");
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.librariesFolder = value;
 					await this.plugin.saveSettings();
 				});
 			});
@@ -300,6 +332,6 @@ export class SettingTab extends PluginSettingTab {
 					});
 			});
 
-		this.plugin.drawioClientManager.createUpdateSetting(containerEl);
+		void this.plugin.drawioClientManager.createUpdateSetting(containerEl);
 	}
 }

@@ -38,7 +38,8 @@ export default class DrawioPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const storedData = (await this.loadData()) as Partial<DrawioSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, storedData ?? {});
 	}
 
 	async saveSettings() {
@@ -49,12 +50,12 @@ export default class DrawioPlugin extends Plugin {
 		this.serverManager.stopServer();
 
 		const tooltip = ExternalLinkTooltip.getInstance();
-		tooltip.destroy();
+		tooltip.destroy(this.app);
 
 		this.initter.canvasManager.destroy();
 	}
 
-	async activateView(ViewType: string, options?: { file?: { path: string };[key: string]: any }) {
+	async activateView(ViewType: string, options?: { file?: { path: string };[key: string]: unknown }) {
 		const { workspace } = this.app;
 		let leaf: WorkspaceLeaf | null = null;
 
@@ -62,7 +63,8 @@ export default class DrawioPlugin extends Plugin {
 			const existingLeaves = workspace.getLeavesOfType(ViewType);
 			for (const l of existingLeaves) {
 				const currentLeafState = l.getViewState();
-				if (currentLeafState.state?.file?.path === options.file.path) {
+				const currentState = currentLeafState.state as { file?: { path?: string } } | undefined;
+				if (currentState?.file?.path === options.file.path) {
 					leaf = l;
 					break;
 				}
@@ -70,7 +72,7 @@ export default class DrawioPlugin extends Plugin {
 		}
 
 		if (leaf) {
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 			return;
 		}
 
@@ -83,7 +85,7 @@ export default class DrawioPlugin extends Plugin {
 				state: options
 			});
 
-			workspace.revealLeaf(leaf);
+			void workspace.revealLeaf(leaf);
 		}
 	}
 }

@@ -34,21 +34,21 @@ export class MarkdownTooltip {
 
                 const target = e.target as HTMLElement;
 
-                const internalLink = target.closest(".internal-link") as HTMLAnchorElement | null;
-                if (internalLink) {
+                const internalLink = target.closest(".internal-link");
+                if (internalLink instanceof HTMLAnchorElement) {
                     e.preventDefault();
                     const href = internalLink.getAttribute("data-href") || internalLink.getAttribute("href");
 
                     if (href) {
                         const newLeaf = e.metaKey || e.ctrlKey;
-                        this.app.workspace.openLinkText(href, this.currentSourcePath, newLeaf);
+                        void this.app.workspace.openLinkText(href, this.currentSourcePath, newLeaf);
                         this.hideImmediate();
                     }
                     return;
                 }
 
-                const externalLink = target.closest(".external-link") as HTMLAnchorElement | null;
-                if (externalLink) {
+                const externalLink = target.closest(".external-link");
+                if (externalLink instanceof HTMLAnchorElement) {
                     e.preventDefault();
                     const href = externalLink.getAttribute("href");
                     if (href) {

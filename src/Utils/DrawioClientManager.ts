@@ -4,6 +4,8 @@ import { Notice, requestUrl, Setting, ButtonComponent } from 'obsidian';
 import * as fflate from "fflate";
 import * as http from 'https';
 import { t } from "locales/I18n";
+import { getVaultBasePath } from "./VaultAdapterUtils";
+import fs from 'fs';
 
 export class DrawioClientManager {
     private plugin: DrawioPlugin;
@@ -17,8 +19,8 @@ export class DrawioClientManager {
         if (this.plugin.settings.clientAutoUpdate === false) {
             return;
         }
-        setTimeout(async () => {
-            await this.checkAndUpdate();
+        setTimeout(() => {
+            void this.checkAndUpdate();
         }, delayMs);
     }
 
@@ -39,7 +41,7 @@ export class DrawioClientManager {
             let lastLoggedPercentage = -1;
             await this.executeUpgrade((progress) => {
                 if (progress % 10 === 0 && progress !== lastLoggedPercentage) {
-                    console.log(`[Drawio Auto-Update] ${t("DRAWIO_UPDATE__PROCESSING").replace("...", "")}: ${progress}%`);
+                    console.debug(`[Drawio Auto-Update] ${t("DRAWIO_UPDATE__PROCESSING").replace("...", "")}: ${progress}%`);
                     lastLoggedPercentage = progress;
                 }
             });
@@ -164,10 +166,9 @@ export class DrawioClientManager {
             const pluginBaseDir = this.plugin.manifest.dir;
             const adapter = this.plugin.app.vault.adapter;
 
-            const basePath = (adapter as any).getBasePath?.() ?? "";
+            const basePath = getVaultBasePath(adapter);
             const absoluteZipPath = `${basePath}/${pluginBaseDir}/webapp.zip`;
 
-            const fs = require('fs');
             const fileStream = fs.createWriteStream(absoluteZipPath);
 
             if (onProgress) onProgress(0, t("DRAWIO_UPDATE__CONNECTING"));
@@ -234,7 +235,8 @@ export class DrawioClientManager {
                     'Pragma': 'no-cache'
                 }
             });
-            return response.json?.tag_name;
+            const release = response.json as { tag_name?: string } | undefined;
+            return release?.tag_name;
         } catch (error) {
             console.error(t("DRAWIO_ERROR__FETCH_VERSION_FAILED"), error);
         }
@@ -303,7 +305,7 @@ export class DrawioClientManager {
                         const safeArrayBuffer = fileData.buffer.slice(
                             fileData.byteOffset,
                             fileData.byteOffset + fileData.byteLength
-                        ) as ArrayBuffer;
+                        );
 
                         await adapter.writeBinary(fullPathOnDisk, safeArrayBuffer);
                     }

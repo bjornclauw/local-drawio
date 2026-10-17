@@ -1,6 +1,6 @@
 import DrawioPlugin from "main";
 
-export async function setClassToDiagrams(plugin: DrawioPlugin) {
+export function setClassToDiagrams(plugin: DrawioPlugin) {
     return plugin.registerMarkdownPostProcessor((element, context) => {
 
         const observer = new MutationObserver((mutationsList, observer) => {
@@ -16,7 +16,7 @@ export async function setClassToDiagrams(plugin: DrawioPlugin) {
                     if (isDrawio) {
                         const diagrams = element.find("img");
 
-                        diagrams ? diagrams.addClass("drawio-diagram") : "";
+                        if (diagrams) diagrams.addClass("drawio-diagram");
                     }
                 });
 

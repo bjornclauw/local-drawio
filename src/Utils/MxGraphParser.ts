@@ -35,7 +35,8 @@ export class MxGraphParser {
             if (cleanXmlText.includes("%")) {
                 cleanXmlText = decodeURIComponent(cleanXmlText);
             } else {
-                cleanXmlText = unescape(cleanXmlText);
+                const bytes = new Uint8Array(Array.from(cleanXmlText, char => char.charCodeAt(0)));
+                cleanXmlText = new TextDecoder().decode(bytes);
             }
 
             return this.domParser.parseFromString(cleanXmlText, "application/xml");

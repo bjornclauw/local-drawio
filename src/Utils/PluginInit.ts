@@ -6,14 +6,14 @@ import DrawioPlugin from "main";
 import { CenteringDiagrams } from "MarkdownPostProcessors/CenteringDiagram";
 import { interactiveDiagramss } from "MarkdownPostProcessors/interactiveDiagrams";
 import { PercentSize } from "MarkdownPostProcessors/PercentSize";
-import { Editor, MarkdownView, Menu, Notice, TFile } from "obsidian";
+import { Editor, EventRef, MarkdownView, Menu, TAbstractFile, TFile } from "obsidian";
 import { SettingTab } from "Settings/settings";
 import { DrawioEditorView } from "Views/DrawioEditorView";
 import { pluginUtils } from "./PluginUtils";
 import { SizeInHoverWindow } from "MarkdownPostProcessors/SizeInhoverWindow";
 import { setClassToDiagrams } from "MarkdownPostProcessors/setClassToDiagrams";
 import { setDiagramsTheme } from "MarkdownPostProcessors/setDiagramTheme";
-import { SetClassToDiagramsEditorExtension } from "EditorExtensions/setClassToDiagramsEditorExtension";
+import { SetClassToDiagramsEditorExtension } from "EditorExtensions/SetClassToDiagramsEditorExtension";
 import { setDiagramThemeEditorExtension } from "EditorExtensions/setDiagramThemeEditorExtension";
 import { CanvasManager } from "./CanvasManager";
 import { DrawioEditorModal } from "Views/DrawioEditorModal";
@@ -36,9 +36,9 @@ export class PluginInit {
         this.plugin.addSettingTab(new SettingTab(this.plugin.app, this.plugin));
     }
 
-    async addRibbonIcon(): Promise<any> {
-        this.plugin.addRibbonIcon('shapes', t("DRAWIO_RIBBON__TOOLTIP"), async (evt: MouseEvent) => {
-            this.plugin.activateView(DRAWIO_EDITOR_VIEW);
+    addRibbonIcon(): void {
+        this.plugin.addRibbonIcon('shapes', t("DRAWIO_RIBBON__TOOLTIP"), (evt: MouseEvent) => {
+            void this.plugin.activateView(DRAWIO_EDITOR_VIEW);
         })
     }
 
@@ -82,9 +82,9 @@ export class PluginInit {
                 const fileToEdit = this.utils.findDiagramFileUnderCursor(this.plugin.app, editor, view);
 
                 if (fileToEdit && fileToEdit.name.endsWith('.drawio.svg')) {
-                    this.plugin.activateView(DRAWIO_EDITOR_VIEW, { file: fileToEdit });
+                    void this.plugin.activateView(DRAWIO_EDITOR_VIEW, { file: fileToEdit });
                 } else {
-                    this.plugin.activateView(DRAWIO_EDITOR_VIEW);
+                    void this.plugin.activateView(DRAWIO_EDITOR_VIEW);
                 }
             }
         });
@@ -117,15 +117,15 @@ export class PluginInit {
         setClassToDiagrams(this.plugin);
         setDiagramsTheme(this.plugin);
 
-        this.plugin.settings.centeringDiagrams
-            ? CenteringDiagrams(this.plugin)
-            : ""
+        if (this.plugin.settings.centeringDiagrams) {
+            CenteringDiagrams(this.plugin);
+        }
 
         PercentSize(this.plugin)
 
-        this.plugin.settings.interactiveDiagrams
-            ? interactiveDiagramss(this.plugin)
-            : ""
+        if (this.plugin.settings.interactiveDiagrams) {
+            interactiveDiagramss(this.plugin);
+        }
 
         SizeInHoverWindow(this.plugin);
         this.canvasManager.init();
@@ -136,9 +136,9 @@ export class PluginInit {
         this.plugin.registerEditorExtension(setDiagramThemeEditorExtension(this.plugin));
 
 
-        this.plugin.settings.centeringDiagrams
-            ? this.plugin.registerEditorExtension(CenteringEditorExtension())
-            : ""
+        if (this.plugin.settings.centeringDiagrams) {
+            this.plugin.registerEditorExtension(CenteringEditorExtension());
+        }
 
         this.plugin.registerEditorExtension(DeleteResizeBlockEditorExtension())
 
@@ -147,22 +147,16 @@ export class PluginInit {
 
     registerEvents() {
 
-        this.plugin.registerEvent(
-            this.plugin.app.workspace.on('drawio:edit-diagram', (file: TFile) => {
+        this.registerPluginEvent("drawio:edit-diagram", (file: TFile) => {
+            void this.plugin.activateView(DRAWIO_EDITOR_VIEW, { file: file });
+        });
 
-                this.plugin.activateView(DRAWIO_EDITOR_VIEW, { file: file });
-            })
-        );
-
-        this.plugin.registerEvent(
-            this.plugin.app.workspace.on('drawio:copy-diagram-as-image', (file: TFile) => {
-
-                this.utils.copySvgAsPng(file)
-            })
-        );
+        this.registerPluginEvent("drawio:copy-diagram-as-image", (file: TFile) => {
+            void this.utils.copySvgAsPng(file)
+        });
 
         this.plugin.registerEvent(
-            this.plugin.app.workspace.on("file-menu", (menu: Menu, fileToEdit: File) => {
+            this.plugin.app.workspace.on("file-menu", (menu: Menu, fileToEdit: TAbstractFile) => {
 
                 if (fileToEdit && fileToEdit.name.endsWith('.drawio.svg')) {
                     menu.addItem((item) => {
@@ -178,7 +172,7 @@ export class PluginInit {
         );
 
         this.plugin.registerEvent(
-            this.plugin.app.workspace.on("file-menu", (menu: Menu, file: TFile) => {
+            this.plugin.app.workspace.on("file-menu", (menu: Menu, file: TAbstractFile) => {
 
                 if (file && file.name.endsWith('.drawio.svg')) {
                     menu.addItem((item) => {
@@ -192,6 +186,13 @@ export class PluginInit {
                 }
             })
         );
+    }
+
+    private registerPluginEvent(name: string, callback: (file: TFile) => void) {
+        const on = this.plugin.app.workspace.on.bind(this.plugin.app.workspace) as unknown as
+            (eventName: string, cb: (file: TFile) => void) => EventRef;
+
+        this.plugin.registerEvent(on(name, callback));
     }
 
     registerExtensions() {
