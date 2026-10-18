@@ -46,7 +46,7 @@
     "SETTINGS_FOCUS_BORDER__NAME": "Скрыть границы в режиме фокуса",
     "SETTINGS_FOCUS_BORDER__DESCRIPTION": "Если включено, рамка вокруг диаграммы на холсте (canvas) будет скрыта при фокусе",
     "SETTINGS_CANVAS_TRANSPARENT__NAME": "Прозрачный фон на холсте (Canvas)",
-    "SETTINGS_CANVEL_TRANSPARENT__DESCRIPTION": "Делает подложку диаграммы прозрачной при размещении на холсте (canvas) Obsidian.",
+    "SETTINGS_CANVAS_TRANSPARENT__DESCRIPTION": "Делает подложку диаграммы прозрачной при размещении на холсте (canvas) Obsidian.",
     "SETTINGS_THEME_CANVAS__NAME": "цветовая схема диаграмм на холсте (Canvas)",
     "SETTINGS_THEME_CANVAS__DESCRIPTION": "Укажите цветовую схему которая будет использовать для диаграмм внутри холста (canvas) Obsidian.",
     "SETTINGS_SCALE_COPY__NAME": "Масштаб копируемой диаграммы",

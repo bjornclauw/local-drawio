@@ -1,145 +1,56 @@
-# 🔶 Local Draw.io for Obsidian
+# Local Draw.io
 
-> Vendored fork of [somesanity/draw-io-obsidian](https://github.com/somesanity/draw-io-obsidian) (GPLv3).
-> Plugin ID is now `local-drawio`, so it installs side-by-side with the original under
-> `<Vault>/.obsidian/plugins/local-drawio/`. Upstream credit retained; all new changes here are my own.
+Create and edit diagrams with draw.io (diagrams.net) inside Obsidian, locally and offline.
 
-![demo](./docs/demo.gif)
+> Vendored fork of [somesanity/draw-io-obsidian](https://github.com/somesanity/draw-io-obsidian), licensed under [GNU GPLv3](./LICENSE). Plugin ID is `local-drawio`, so it installs side by side with the original.
 
-## 🚀 Features
+## How it works
 
-  * 🧩 **Interactivity** – bind your note links to shapes, add external links, and insert markdown fragments!  
-  * 🛜 **Works 100% offline** – No internet required!
-  * 🔐 **Privacy-first** – Runs a local server on your machine.
-  * 📐 **Mermaid & LaTeX** - the draw.io native support Mermaid and LaTeX.
-  * 🖼️ **Support Canvas** - Use diagram in Canvas, linking notes, add external links!
+The plugin serves a local copy of the draw.io web app from your machine and opens it in an editor view. No account, no cloud. The only network use is the one-time download (or update) of the draw.io client from the [jgraph/drawio](https://github.com/jgraph/drawio) releases, which you trigger yourself in settings.
 
-## ✨ Interactive diagrams
+## Features
 
-> ⚠️ at the moment, work **ONLY** the reading mode
+- Offline diagram editing in a dedicated view or modal window
+- Diagrams stored as `.drawio.svg` files in your vault (regular SVGs the plugin recognizes)
+- Open diagram under cursor via command or hotkey (`Mod+Alt+E`, modal with `Mod+Alt+M`)
+- Right-click a diagram file to edit it or copy it as a PNG image
+- Interactive diagrams in reading mode: clickable note and external links, markdown previews
+- Canvas support with border, label, focus, background, and theme options
+- Theme control: preview mode, edit mode, canvas, editor UI, and SVG export (adaptive, light, dark)
+- External images embedded locally so diagrams survive dead links
+- Vault shape libraries: every `.xml` file in a chosen folder loads into the editor
+- File naming: timestamp, UUID, ISO date, or ask every time
 
-![docs/demo.gif](docs/interactiveDiagram-demo.gif)
+## Requirements
 
-### 🖇️ Linking shapes with notes & external links
+- Desktop Obsidian (the plugin is desktop-only)
+- On first run, open settings and download the draw.io client
 
-To link your notes or external resources to shapes, right-click on a shape in the editor and select `Add link`. Then, insert the link to your note or external resource.
+## Install
 
-🔗 linking notes demo:
+1. Copy `manifest.json`, `main.js`, and `styles.css` (if present) into:
+   `<Vault>/.obsidian/plugins/local-drawio/`
+2. Reload Obsidian and enable **Local Draw.io** under **Settings → Community plugins**.
+3. In the plugin settings, download the draw.io client.
 
-![docs/demo.gif](docs/linkingnotedemo.gif)
+## Use
 
-🌐 creating an external link demo:
+- Select the ribbon button or run `Launch draw.io editor` to create a diagram.
+- Place the cursor on a diagram link and run `Open diagram under cursor` to edit it.
+- Diagrams render inline in notes, hover previews, and on canvas.
 
-![docs/demo.gif](docs/linking-external-resources.gif)
+## Settings
 
-### 📄 Markdown fragments
+General (save folder, file name format, local server port, client updates), display (centering, hover size, copy scale, image embedding, libraries folder), themes, canvas, and a manual update section showing the installed client version.
 
-**Markdown fragments** are pieces of markdown that you can add to diagrams.
+## Develop
 
-Right-click on the shape or element you want to bind a markdown fragment to, then select `Add data...`.  
-The data name should follow the pattern `md-number`, for example: `md-1`, `md-2`.  
-Next, insert the markdown text into the property.
+```bash
+npm install
+npm run dev    # watch build
+npm run build  # production build
+```
 
-📜 Adding a markdown fragment demo:
+## License
 
-![docs/demo.gif](/docs/markdown-fragment-demo.gif)
-
-You can literally put **anything** into a diagram that Obsidian is capable of rendering, including rendering features added by plugins.
-
-for example:
-
-- random note
-  ![random-note-demo.gif](docs/random-note-demo.gif)
-- complex dataviewjs scripts
-  ![complex-interactive-demo](docs/complex-interactive-demo.gif)
-
-### 📐 Mermaid & LaTeX
-
-You can use mermaid, plumt and LaTeX (native support draw.io)
-
-![docs/LaTeX&mermaid.gif](docs/LaTeX&mermaid.gif)
-
-### 🖼️ Canvas support
-
-Use the diagrams in canvas! Link your notes, add external/internal links and markdown-fragments!
-
-![canvas-demo.gif](docs/canvas-demo.gif)
-
-## 🖱️ How to Use
-
-Diagrams created by the plugin use the `.drawio.svg` extension. The file is still a regular SVG file; the `.drawio` part is added so the plugin can recognize that the SVG was created by it.
-
-- `diagram.drawio.svg` — ✔️
-- `diagram.svg` — ❌
-
-If you remove the `.drawio` part, the plugin will no longer recognize the file as a draw.io diagram.
-
-### How to Open the Editor
-
-You can open the editor using a Command Palette command:
-
-![Open editor via Command Palette](./docs/open-editor-by-command.gif)
-
-Or you can assign and use a keyboard shortcut:
-
-![Open editor via keyboard shortcut](./docs/open-editor-by-hotkey.gif)
-
-### How to Edit Diagrams
-
-There are three ways to edit a diagram:
-
-1. **Using the context menu** — right-click the diagram link and select **"Edit draw.io Diagram"**.
-
-![Edit diagram via context menu](./docs/edit-diagram-by-context-menu.gif)
-
-2. **Using a keyboard shortcut** — place the cursor on the diagram link in editing mode and press the assigned shortcut.
-
-![Edit diagram via keyboard shortcut](./docs/edit-diagram-by-keybind.gif)
-
-3. **Using the modal editor shortcut** — place the cursor on the diagram link in editing mode and press the modal editor shortcut.
-
-![Edit diagram via modal editor shortcut](./docs/edit-diagram-by-keybind-modal.gif)
-
-## ❓ How It Works
-
-This plugin launches a **local web server** that serves the [Draw.io web app](https://github.com/jgraph/drawio) directly from your machine.
-
-  * When you open your Obsidian vault and enable the plugin, it spins up the server automatically.
-  * You can then create, edit, and save diagrams directly within Obsidian — **completely offline**.
-
-## 📦 Installation Guide
-
-there are 2 ways: 
-
-1. install from the [plugin page](https://community.obsidian.md/plugins/drawio) or open this link obsidian://show-plugin?id=drawio in new browser tab
-  > after downloading enable plugin, then go to settings, scroll down and click on the downlaod button draw.io client
-2. manually install
-
-2. after downloadingб 
-
-### 🙌 manually install
-
-1. downlaod from Releases
-
-    - `main.js` 
-    - `manifest.json`
-    - `style.css`
-
-2. create Folder in the .obsidian folder (where other plugin) and then move the file to the folder.
-
-    > ```bash
-    > .obsidian/
-    > └── plugins/
-    >     └── draw-io/
-    >         ├── manifest.json
-    >         ├── main.js
-    >         ├── styles.css
-    > ```
-
-3. enable plugin, then go to settings, scroll down and click on the downlaod button draw.io client
-
-![installation-drawio-client-demo.gif](docs/installation-drawio-client-demo.gif)
-
-### License
-
-This software is licensed under the [GNU GPLv3](./LICENSE).
+GNU GPLv3, see [LICENSE](./LICENSE). Upstream credit to [somesanity](https://github.com/somesanity) and the [draw.io](https://github.com/jgraph/drawio) project.

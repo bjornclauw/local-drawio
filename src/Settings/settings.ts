@@ -284,7 +284,7 @@ export class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName(t("SETTINGS_CANVAS_TRANSPARENT__NAME"))
-			.setDesc(t("SETTINGS_CANVEL_TRANSPARENT__DESCRIPTION"))
+			.setDesc(t("SETTINGS_CANVAS_TRANSPARENT__DESCRIPTION"))
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.TransparentDiagramBackgroundInCanavas)
 				.onChange(async (value) => {

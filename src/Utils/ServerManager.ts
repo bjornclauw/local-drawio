@@ -37,7 +37,13 @@ export class ServerManager {
 
             const relativePath = cleanUrl === '/' ? 'index.html' : cleanUrl;
 
-            const filePath = path.join(baseDir, relativePath);
+            const filePath = path.normalize(path.join(baseDir, relativePath));
+
+            if (filePath !== baseDir && !filePath.startsWith(baseDir + path.sep)) {
+                res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end(t("SERVER_MESSAGE_ERROR"));
+                return;
+            }
 
             const extname = String(path.extname(filePath)).toLowerCase();
             const contentType = MIME_TYPES[extname] || 'application/octet-stream';
@@ -62,8 +68,8 @@ export class ServerManager {
             });
         });
 
-        const port = this.plugin.settings.port || 4444;
-        server.listen(port, () => {
+        const port = Number(this.plugin.settings.port) || 4444;
+        server.listen(port, "127.0.0.1", () => {
 
         });
 
