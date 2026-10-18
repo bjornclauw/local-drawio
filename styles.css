@@ -198,3 +198,7 @@
 .modal-setfilename-errorValidateText--invisible {
     display: none;
 }
+
+.drawio-notice-clickable {
+    cursor: pointer;
+}

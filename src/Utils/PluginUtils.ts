@@ -63,7 +63,7 @@ export class pluginUtils {
         }
     }
 
-    async getFileNameForSave(): Promise<string | null> {
+    async getFileNameForSave(extension = '.drawio.svg'): Promise<string | null> {
         const option: savingNameFileFormatOption = this.plugin.settings.savingNameFileFormat
         let defaultPath: string = "";
 
@@ -71,7 +71,6 @@ export class pluginUtils {
             case "timestamp": {
                 const folder = this.plugin.settings.folder;
                 const timestamp = Date.now().toString();
-                const extension = '.drawio.svg';
                 const fullpath = normalizePath(`${folder}/${timestamp}${extension}`);
 
                 if (!await this.plugin.app.vault.adapter.exists(folder)) {
@@ -83,7 +82,6 @@ export class pluginUtils {
             case "uuid": {
                 const folder = this.plugin.settings.folder;
                 const uuid = crypto.randomUUID();
-                const extension = '.drawio.svg';
                 const fullpath = normalizePath(`${folder}/${uuid}${extension}`);
 
                 if (!await this.plugin.app.vault.adapter.exists(folder)) {
@@ -104,7 +102,6 @@ export class pluginUtils {
                 const seconds = String(date.getSeconds()).padStart(2, '0');
 
                 const fulldate = `${year}-${month}-${day}_${hours}-${minutes}-${seconds}`;
-                const extension = '.drawio.svg';
                 const fullpath = normalizePath(`${folder}/${fulldate}${extension}`);
 
                 if (!await this.plugin.app.vault.adapter.exists(folder)) {
@@ -116,7 +113,8 @@ export class pluginUtils {
             case "set name": {
                 const fullPath = await SetFileNameModal.openAndGetPath(
                     this.plugin.app,
-                    this.plugin.settings.folder
+                    this.plugin.settings.folder,
+                    extension
                 );
                 return fullPath;
             }

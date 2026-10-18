@@ -17,6 +17,9 @@
     "DRAWIO_EDITOR__SAVED": "Диаграмма сохранена",
     "DRAWIO_EDITOR__SAVE_FAILED": "Не удалось сохранить диаграмму",
     "DRAWIO_EDITOR__SAVE_CANCELLED": "Сохранение отменено",
+    "DRAWIO_EDITOR__EXPORTING": "Экспорт...",
+    "DRAWIO_EDITOR__EXPORTED": "Экспорт сохранён",
+    "DRAWIO_EDITOR__EXPORT_FAILED": "Не удалось сохранить экспорт",
     "SETTINGS_FOLDER__NAME": "Папка для сохранения диаграмм",
     "SETTINGS_FOLDER__DESCRIPTION": "Выберите папку, в которую по умолчанию будут сохраняться созданные диаграммы.",
     "SETTINGS_FILE_FORMAT__NAME": "Формат имени файла диаграммы",
@@ -49,6 +52,9 @@
     "SETTINGS_SCALE_COPY__NAME": "Масштаб копируемой диаграммы",
     "SETTINGS_SCALE_COPY__DESCRIPTION": "Задайте коэффициент масштабирования при копировании диаграммы в качестве изображения. (чем больше, тем лучше качество)",
     "SETTINGS_SCALE_COPY__PLACEHOLDER": "Например: 4 или 8",
+    "SETTINGS_EXPORT_THEME__NAME": "Цветовая тема экспорта",
+    "SETTINGS_EXPORT_THEME__DESCRIPTION": "Фиксировать цвета экспортируемого SVG на светлые или тёмные вместо следования теме просмотрщика. Адаптивный вариант сохраняет зависимые от темы цвета draw.io.",
+    "SETTINGS_EXPORT_THEME__ADAPTIVE": "Адаптивная",
     "SETTINGS_AUTO_UPDATE__NAME": "Автоматическое обновление клиента draw.io",
     "SETTINGS_AUTO_UPDATE__DESCRIPTION": "если включено, плагин будет автоматически проверять и скачивать актуальную версию draw.io при запуске Obsidian.",
     "THEME_AUTO": "Авто (системная)",
@@ -106,5 +112,6 @@
     "DRAWIO_MODAL__SUBMIT_BTN": "Задать имя",
     "DRAWIO_NOTICE__DIAGRAM_SAVED": "Диаграмма {name} обновленна",
     "DRAWIO_NOTICE__DIAGRAM_CREATED": "Диаграмма успешно создана: {name}",
+    "DRAWIO_NOTICE__EXPORT_SAVED": "Экспорт сохранён: {name}",
     "CANVAS_MANAGER__FAILED_GET_CONTEXT": "Не удалось получить контекст canvas 2d"
 }

@@ -17,6 +17,9 @@
     "DRAWIO_EDITOR__SAVED": "Diagram saved",
     "DRAWIO_EDITOR__SAVE_FAILED": "Failed to save diagram",
     "DRAWIO_EDITOR__SAVE_CANCELLED": "Save cancelled",
+    "DRAWIO_EDITOR__EXPORTING": "Exporting...",
+    "DRAWIO_EDITOR__EXPORTED": "Export saved",
+    "DRAWIO_EDITOR__EXPORT_FAILED": "Failed to save export",
     "SETTINGS_FOLDER__NAME": "Diagram save folder",
     "SETTINGS_FOLDER__DESCRIPTION": "Select the default folder where newly created diagrams will be saved.",
     "SETTINGS_FILE_FORMAT__NAME": "Diagram file name format",
@@ -49,6 +52,9 @@
     "SETTINGS_SCALE_COPY__NAME": "Copied diagram scale",
     "SETTINGS_SCALE_COPY__DESCRIPTION": "Set the scaling factor when copying a diagram as an image (higher values yield better quality).",
     "SETTINGS_SCALE_COPY__PLACEHOLDER": "e.g., 4 or 8",
+    "SETTINGS_EXPORT_THEME__NAME": "Export color theme",
+    "SETTINGS_EXPORT_THEME__DESCRIPTION": "Pin exported SVG colors to light or dark instead of following the viewer's theme. Adaptive keeps draw.io's theme-aware colors.",
+    "SETTINGS_EXPORT_THEME__ADAPTIVE": "Adaptive",
     "SETTINGS_AUTO_UPDATE__NAME": "Auto-update draw.io client",
     "SETTINGS_AUTO_UPDATE__DESCRIPTION": "If enabled, the plugin will automatically check for and download the latest draw.io version on Obsidian startup.",
     "THEME_AUTO": "Auto (System)",
@@ -106,5 +112,6 @@
     "DRAWIO_MODAL__SUBMIT_BTN": "Set name",
     "DRAWIO_NOTICE__DIAGRAM_SAVED": "Diagram {name} updated",
     "DRAWIO_NOTICE__DIAGRAM_CREATED": "Diagram successfully created: {name}",
+    "DRAWIO_NOTICE__EXPORT_SAVED": "Export saved: {name}",
     "CANVAS_MANAGER__FAILED_GET_CONTEXT": "Failed to get canvas 2d context"
 }

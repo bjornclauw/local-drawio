@@ -1,4 +1,8 @@
-# 🔶 Plugin draw.io for obsidian
+# 🔶 Local Draw.io for Obsidian
+
+> Vendored fork of [somesanity/draw-io-obsidian](https://github.com/somesanity/draw-io-obsidian) (GPLv3).
+> Plugin ID is now `local-drawio`, so it installs side-by-side with the original under
+> `<Vault>/.obsidian/plugins/local-drawio/`. Upstream credit retained; all new changes here are my own.
 
 ![demo](./docs/demo.gif)
 

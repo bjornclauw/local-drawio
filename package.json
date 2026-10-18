@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "local-drawio",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Local Draw.io for Obsidian - vendored fork of somesanity/draw-io-obsidian",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -11,7 +11,8 @@
 		"lint": "eslint ."
 	},
 	"keywords": [],
-	"license": "0-BSD",
+	"author": "Bjorn",
+	"license": "GPL-3.0-only",
 	"devDependencies": {
 		"@codemirror/view": "^6.43.12",
 		"@eslint/js": "9.30.1",

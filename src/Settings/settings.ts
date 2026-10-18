@@ -18,6 +18,11 @@ export type editorTheme =
 	"dark" |
 	"light"
 
+export type exportThemeOption =
+	"adaptive" |
+	"dark" |
+	"light"
+
 export interface DrawioSettings {
 	port: string;
 	currentlyDrawioClientVersion: string;
@@ -39,6 +44,7 @@ export interface DrawioSettings {
 	clientAutoUpdate: boolean;
 	embedExternalImages: boolean;
 	librariesFolder: string;
+	exportTheme: exportThemeOption;
 }
 
 export const DEFAULT_SETTINGS: DrawioSettings = {
@@ -61,7 +67,8 @@ export const DEFAULT_SETTINGS: DrawioSettings = {
 	scaleCopyDiagramAsImage: "4",
 	clientAutoUpdate: false,
 	embedExternalImages: true,
-	librariesFolder: ""
+	librariesFolder: "",
+	exportTheme: "adaptive"
 }
 
 export class SettingTab extends PluginSettingTab {
@@ -204,6 +211,20 @@ export class SettingTab extends PluginSettingTab {
 					this.plugin.settings.scaleCopyDiagramAsImage = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName(t("SETTINGS_EXPORT_THEME__NAME"))
+			.setDesc(t("SETTINGS_EXPORT_THEME__DESCRIPTION"))
+			.addDropdown(dropdown => {
+				dropdown.addOption("adaptive", t("SETTINGS_EXPORT_THEME__ADAPTIVE"));
+				dropdown.addOption("light", t("THEME_LIGHT"));
+				dropdown.addOption("dark", t("THEME_DARK"));
+				dropdown.setValue(this.plugin.settings.exportTheme || "adaptive");
+				dropdown.onChange(async (value) => {
+					this.plugin.settings.exportTheme = value as exportThemeOption;
+					await this.plugin.saveSettings();
+				});
+			});
 
 		new Setting(containerEl)
 			.setName(t("SETTINGS_THEME_SECTION_TITLE"))
