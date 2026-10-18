@@ -111,6 +111,19 @@ export class PluginInit {
                 }
             }
         });
+
+        this.plugin.addCommand({
+            id: 'export-diagram-as-pdf',
+            name: t("DRAWIO_COMMAND__EXPORT_DIAGRAM_AS_PDF"),
+
+            editorCallback: (editor: Editor, view: MarkdownView) => {
+                const fileToEdit = this.utils.findDiagramFileUnderCursor(this.plugin.app, editor, view);
+
+                if (fileToEdit) {
+                    void this.utils.exportFileAsPdf(fileToEdit);
+                }
+            }
+        });
     }
 
     registerPostProcessings() {
@@ -155,6 +168,10 @@ export class PluginInit {
             void this.utils.copySvgAsPng(file)
         });
 
+        this.registerPluginEvent("drawio:export-diagram-as-pdf", (file: TFile) => {
+            void this.utils.exportFileAsPdf(file)
+        });
+
         this.plugin.registerEvent(
             this.plugin.app.workspace.on("file-menu", (menu: Menu, fileToEdit: TAbstractFile) => {
 
@@ -181,6 +198,15 @@ export class PluginInit {
                             .setIcon("copy")
                             .onClick(() => {
                                 this.plugin.app.workspace.trigger('drawio:copy-diagram-as-image', file);
+                            });
+                    });
+
+                    menu.addItem((item) => {
+                        item
+                            .setTitle(t("DRAWIO_MENU__EXPORT_AS_PDF"))
+                            .setIcon("file-down")
+                            .onClick(() => {
+                                this.plugin.app.workspace.trigger('drawio:export-diagram-as-pdf', file);
                             });
                     });
                 }

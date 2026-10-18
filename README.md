@@ -13,7 +13,7 @@ The plugin serves a local copy of the draw.io web app from your machine and open
 - Offline diagram editing in a dedicated view or modal window
 - Diagrams stored as `.drawio.svg` files in your vault (regular SVGs the plugin recognizes)
 - Open diagram under cursor via command or hotkey (`Mod+Alt+E`, modal with `Mod+Alt+M`)
-- Right-click a diagram file to edit it or copy it as a PNG image
+- Right-click a diagram file to edit it, copy it as a PNG image, or export it as PDF
 - Interactive diagrams in reading mode: clickable note and external links, markdown previews
 - Canvas support with border, label, focus, background, and theme options
 - Theme control: preview mode, edit mode, canvas, editor UI, and SVG export (adaptive, light, dark)

@@ -3,6 +3,7 @@ import DrawioPlugin from "main";
 import { App, Editor, MarkdownView, normalizePath, Notice, TFile, TFolder } from "obsidian";
 import { savingNameFileFormatOption } from "Settings/settings";
 import { SetFileNameModal } from "Views/SetFileNameModal";
+import { createPdfFromRgba } from "./PdfExporter";
 
 export class pluginUtils {
     private plugin: DrawioPlugin
@@ -228,85 +229,127 @@ export class pluginUtils {
 
     async copySvgAsPng(file: TFile): Promise<void> {
         try {
-            let svgContent = await this.plugin.app.vault.read(file);
-
-            svgContent = svgContent.replace(/<rect[^>]*fill\s*=\s*["'](?:#ffffff|rgb\(255,\s*255,\s*255\)|white)["'][^>]*\/>/gi, '');
-            svgContent = svgContent.replace(/(style=[^>]*background-color:\s*)(?:#ffffff|white|rgb\(255,\s*255,\s*255\))/gi, '$1transparent');
-
-            const encodedBytes = new TextEncoder().encode(svgContent);
-            let binary = "";
-            for (const byte of encodedBytes) {
-                binary += String.fromCharCode(byte);
-            }
-            const base64Svg = btoa(binary);
-            const url = `data:image/svg+xml;base64,${base64Svg}`;
-
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
+            const svgContent = await this.plugin.app.vault.read(file);
+            const canvas = await this.renderSvgToCanvas(svgContent, true);
 
             await new Promise<void>((resolve, reject) => {
-                img.onload = () => {
-                    try {
-                        const canvas = document.createElement('canvas');
-
-                        const scaleFactor = Number(this.plugin.settings.scaleCopyDiagramAsImage);
-
-                        const originalWidth = img.naturalWidth || 800;
-                        const originalHeight = img.naturalHeight || 600;
-
-                        canvas.width = originalWidth * scaleFactor;
-                        canvas.height = originalHeight * scaleFactor;
-
-                        img.width = canvas.width;
-                        img.height = canvas.height;
-
-                        const ctx = canvas.getContext('2d');
-                        if (!ctx) {
-                            throw new Error(t("CANVAS_MANAGER__FAILED_GET_CONTEXT"));
-                        }
-
-                        ctx.imageSmoothingEnabled = true;
-                        ctx.imageSmoothingQuality = 'high';
-
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                        ctx.scale(scaleFactor, scaleFactor);
-
-                        ctx.drawImage(img, 0, 0, originalWidth, originalHeight);
-
-                        canvas.toBlob((pngBlob) => {
-                            if (!pngBlob) {
-                                reject(new Error('Не удалось сконвертировать canvas в Blob'));
-                                return;
-                            }
-
-                            void (async () => {
-                                try {
-                                    await navigator.clipboard.write([
-                                        new ClipboardItem({ [pngBlob.type]: pngBlob })
-                                    ]);
-                                    new Notice(t("COPY_AS_IMAGE__COPY_SUCCES_NOTICE"));
-                                    resolve();
-                                } catch (clipboardError) {
-                                    reject(clipboardError instanceof Error
-                                        ? clipboardError
-                                        : new Error(String(clipboardError)));
-                                }
-                            })();
-                        }, 'image/png');
-
-                    } catch (err) {
-                        reject(err instanceof Error ? err : new Error(String(err)));
+                canvas.toBlob((pngBlob) => {
+                    if (!pngBlob) {
+                        reject(new Error('Failed to convert canvas to Blob'));
+                        return;
                     }
-                };
 
-                img.onerror = () => reject(new Error('Ошибка загрузки SVG'));
-                img.src = url;
+                    void (async () => {
+                        try {
+                            await navigator.clipboard.write([
+                                new ClipboardItem({ [pngBlob.type]: pngBlob })
+                            ]);
+                            new Notice(t("COPY_AS_IMAGE__COPY_SUCCES_NOTICE"));
+                            resolve();
+                        } catch (clipboardError) {
+                            reject(clipboardError instanceof Error
+                                ? clipboardError
+                                : new Error(String(clipboardError)));
+                        }
+                    })();
+                }, 'image/png');
             });
 
         } catch (error) {
             console.error(t("COPY_AS_IMAGE__EXPORT_ERROR"), error);
             new Notice(t("COPY_AS_IMAGE__COPY_FAILED"));
         }
+    }
+
+    async exportFileAsPdf(file: TFile): Promise<void> {
+        try {
+            const svgContent = await this.plugin.app.vault.read(file);
+            const canvas = await this.renderSvgToCanvas(svgContent, false);
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                throw new Error(t("CANVAS_MANAGER__FAILED_GET_CONTEXT"));
+            }
+            const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pdf = createPdfFromRgba(canvas.width, canvas.height, pixels.data);
+
+            const target = await this.getFileNameForSave(".pdf");
+            if (!target) {
+                new Notice(t("DRAWIO_EDITOR__SAVE_CANCELLED"));
+                return;
+            }
+
+            const created = await this.plugin.app.vault.createBinary(target, pdf.buffer as ArrayBuffer);
+            const name = target.split("/").pop() ?? target;
+            const notice = new Notice(t("DRAWIO_NOTICE__EXPORT_SAVED").replace("{name}", name));
+            notice.messageEl.addClass("drawio-notice-clickable");
+            notice.messageEl.onclick = () => {
+                void (async () => {
+                    const leaf = this.plugin.app.workspace.getLeaf("tab");
+                    await leaf.openFile(created);
+                })();
+            };
+        } catch (error) {
+            console.error(t("COPY_AS_IMAGE__EXPORT_ERROR"), error);
+            new Notice(t("DRAWIO_EDITOR__EXPORT_FAILED"));
+        }
+    }
+
+    private renderSvgToCanvas(svgContent: string, stripWhiteBackground: boolean): Promise<HTMLCanvasElement> {
+        let svg = svgContent;
+        if (stripWhiteBackground) {
+            svg = svg.replace(/<rect[^>]*fill\s*=\s*["'](?:#ffffff|rgb\(255,\s*255,\s*255\)|white)["'][^>]*\/>/gi, '');
+            svg = svg.replace(/(style=[^>]*background-color:\s*)(?:#ffffff|white|rgb\(255,\s*255,\s*255\))/gi, '$1transparent');
+        }
+
+        const encodedBytes = new TextEncoder().encode(svg);
+        let binary = "";
+        for (const byte of encodedBytes) {
+            binary += String.fromCharCode(byte);
+        }
+        const base64Svg = btoa(binary);
+        const url = `data:image/svg+xml;base64,${base64Svg}`;
+
+        const scaleFactor = Number(this.plugin.settings.scaleCopyDiagramAsImage) || 4;
+
+        return new Promise<HTMLCanvasElement>((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+
+                    const originalWidth = img.naturalWidth || 800;
+                    const originalHeight = img.naturalHeight || 600;
+
+                    canvas.width = originalWidth * scaleFactor;
+                    canvas.height = originalHeight * scaleFactor;
+
+                    img.width = canvas.width;
+                    img.height = canvas.height;
+
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error(t("CANVAS_MANAGER__FAILED_GET_CONTEXT"));
+                    }
+
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    ctx.scale(scaleFactor, scaleFactor);
+
+                    ctx.drawImage(img, 0, 0, originalWidth, originalHeight);
+                    resolve(canvas);
+                } catch (err) {
+                    reject(err instanceof Error ? err : new Error(String(err)));
+                }
+            };
+
+            img.onerror = () => reject(new Error('Failed to load SVG'));
+            img.src = url;
+        });
     }
 }
