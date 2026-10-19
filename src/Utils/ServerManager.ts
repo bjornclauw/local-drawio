@@ -9,6 +9,7 @@ import { App, normalizePath, TFile } from "obsidian";
 import { t } from "locales/I18n";
 import { getVaultBasePath } from "./VaultAdapterUtils";
 import { ImageEmbedder } from "./ImageEmbedder";
+import { PDF_PRINT_SHIM } from "./pdfPrintShim";
 
 export class ServerManager {
     private plugin: DrawioPlugin;
@@ -35,6 +36,16 @@ export class ServerManager {
                 return;
             }
 
+            if (cleanUrl === '/__local-drawio/pdf-shim.js') {
+                res.writeHead(200, {
+                    'Content-Type': 'text/javascript; charset=utf-8',
+                    'Access-Control-Allow-Origin': '*',
+                    'Cache-Control': 'no-store'
+                });
+                res.end(PDF_PRINT_SHIM);
+                return;
+            }
+
             const relativePath = cleanUrl === '/' ? 'index.html' : cleanUrl;
 
             const filePath = path.normalize(path.join(baseDir, relativePath));
@@ -58,12 +69,16 @@ export class ServerManager {
                         res.end(t("SERVER_MESSAGE_ERROR") + error.code);
                     }
                 } else {
+                    const body = filePath.toLowerCase().endsWith('index.html')
+                        ? this.injectPdfShim(content.toString('utf-8'))
+                        : content;
                     res.writeHead(200, {
                         'Content-Type': contentType,
                         'Access-Control-Allow-Origin': '*',
+                        'Cache-Control': 'no-store',
                         'Content-Security-Policy': "default-src 'self' 'unsafe-inline' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http: https:;"
                     });
-                    res.end(content);
+                    res.end(body);
                 }
             });
         });
@@ -75,6 +90,14 @@ export class ServerManager {
 
         return server;
     }
+
+    private injectPdfShim(html: string): string {
+        const tag = '<script src="/__local-drawio/pdf-shim.js"></script>';
+        if (html.includes('/__local-drawio/pdf-shim.js')) return html;
+        if (html.includes('</body>')) return html.replace('</body>', `${tag}\n</body>`);
+        return html + tag;
+    }
+
 
     startServer() {
         if (this.plugin.server) return;

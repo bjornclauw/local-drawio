@@ -273,6 +273,11 @@ export class DrawioAppController {
   }
 
   async onExportData(data: DrawIoMessage) {
+    if (data.format === "pdf") {
+      await this.handlePdfExport(data);
+      return;
+    }
+
     if (!this.pendingSaveExport) {
       await this.handleUserExport(data);
       return;
@@ -349,6 +354,58 @@ export class DrawioAppController {
     } catch (error) {
       console.error("Failed to save drawio diagram", error);
       this.finishSave(false);
+    }
+  }
+
+  private async handlePdfExport(data: DrawIoMessage) {
+    this.setEditorSaving(true, t("DRAWIO_EDITOR__EXPORTING"));
+
+    try {
+      if (!data.data) {
+        console.error("Drawio PDF export arrived without data");
+        this.setEditorSaving(false, t("DRAWIO_EDITOR__EXPORT_FAILED"));
+        return;
+      }
+
+      const decoded = this.decodeExportDataUri(data.data);
+      if (!decoded) {
+        console.error("Failed to decode drawio PDF export", data.data.slice(0, 120));
+        this.setEditorSaving(false, t("DRAWIO_EDITOR__EXPORT_FAILED"));
+        return;
+      }
+
+      let svg = new TextDecoder().decode(decoded.bytes);
+
+      if (this.plugin.settings.embedExternalImages !== false) {
+        try {
+          svg = await ImageEmbedder.inlineExternalImages(svg);
+        } catch (error) {
+          console.warn("ImageEmbedder: pdf export inline pass skipped", error);
+        }
+      }
+
+      const pdf = await this.Utils.svgToPdfBytes(svg);
+
+      const target = await this.Utils.getFileNameForSave(".pdf");
+      if (!target) {
+        this.setEditorSaving(false, t("DRAWIO_EDITOR__SAVE_CANCELLED"));
+        return;
+      }
+
+      const created = await this.plugin.app.vault.createBinary(target, pdf.buffer as ArrayBuffer);
+      const name = target.split("/").pop() ?? target;
+      const notice = new Notice(t("DRAWIO_NOTICE__EXPORT_SAVED").replace("{name}", name));
+      notice.messageEl.addClass("drawio-notice-clickable");
+      notice.messageEl.onclick = () => {
+        void (async () => {
+          const leaf = this.plugin.app.workspace.getLeaf("tab");
+          await leaf.openFile(created);
+        })();
+      };
+      this.setEditorSaving(false, t("DRAWIO_EDITOR__EXPORTED"));
+    } catch (error) {
+      console.error("Failed to save drawio PDF export", error);
+      this.setEditorSaving(false, t("DRAWIO_EDITOR__EXPORT_FAILED"));
     }
   }
 

@@ -5,6 +5,8 @@ import { savingNameFileFormatOption } from "Settings/settings";
 import { SetFileNameModal } from "Views/SetFileNameModal";
 import { createPdfFromRgba } from "./PdfExporter";
 
+const PLUGIN_LOAD_ID = `${Date.now().toString(36)}`;
+
 export class pluginUtils {
     private plugin: DrawioPlugin
 
@@ -18,18 +20,18 @@ export class pluginUtils {
         const configureParam = this.plugin.settings.librariesFolder ? "&configure=1" : "";
         const clibsParam = this.getCustomLibsParam(baseUrl);
 
-        let embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1${configureParam}${clibsParam}`;
+        let embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&_ld=${PLUGIN_LOAD_ID}${configureParam}${clibsParam}`;
 
         switch (this.plugin.settings.EditorTheme) {
             case "auto": {
-                if (document.body.hasClass("theme-light")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white${configureParam}${clibsParam}`;
-                if (document.body.hasClass("theme-dark")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark${configureParam}${clibsParam}`;
+                if (document.body.hasClass("theme-light")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white&_ld=${PLUGIN_LOAD_ID}${configureParam}${clibsParam}`;
+                if (document.body.hasClass("theme-dark")) embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark&_ld=${PLUGIN_LOAD_ID}${configureParam}${clibsParam}`;
                 break;
             }
 
-            case "light": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white${configureParam}${clibsParam}`
+            case "light": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=white&_ld=${PLUGIN_LOAD_ID}${configureParam}${clibsParam}`
                 break;
-            case "dark": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark${configureParam}${clibsParam}`;
+            case "dark": embedmode = `${baseUrl}/?embed=1&proto=json&libraries=1&spin=1&ui=dark&_ld=${PLUGIN_LOAD_ID}${configureParam}${clibsParam}`;
                 break;
         }
 
@@ -264,14 +266,7 @@ export class pluginUtils {
     async exportFileAsPdf(file: TFile): Promise<void> {
         try {
             const svgContent = await this.plugin.app.vault.read(file);
-            const canvas = await this.renderSvgToCanvas(svgContent, false);
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                throw new Error(t("CANVAS_MANAGER__FAILED_GET_CONTEXT"));
-            }
-            const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const pdf = createPdfFromRgba(canvas.width, canvas.height, pixels.data);
+            const pdf = await this.svgToPdfBytes(svgContent);
 
             const target = await this.getFileNameForSave(".pdf");
             if (!target) {
@@ -293,6 +288,16 @@ export class pluginUtils {
             console.error(t("COPY_AS_IMAGE__EXPORT_ERROR"), error);
             new Notice(t("DRAWIO_EDITOR__EXPORT_FAILED"));
         }
+    }
+
+    async svgToPdfBytes(svgContent: string): Promise<Uint8Array> {
+        const canvas = await this.renderSvgToCanvas(svgContent, false);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error(t("CANVAS_MANAGER__FAILED_GET_CONTEXT"));
+        }
+        const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        return createPdfFromRgba(canvas.width, canvas.height, pixels.data);
     }
 
     private renderSvgToCanvas(svgContent: string, stripWhiteBackground: boolean): Promise<HTMLCanvasElement> {
